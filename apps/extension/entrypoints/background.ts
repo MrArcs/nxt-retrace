@@ -324,15 +324,41 @@ async function installBugProbe(tabId: number) {
   }
 }
 
-async function activeHttpTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+async function resolveHttpTab(tabId?: number) {
+  if (typeof tabId === "number") {
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      if (!tab.id || !tab.url?.startsWith("http")) {
+        return {
+          error:
+            "That tab cannot be captured. Switch to an http(s) page (not chrome://, the Web Store, or the new-tab page).",
+          tab: null,
+        };
+      }
+      return { tab, error: null };
+    } catch {
+      return { error: "The target tab is no longer open.", tab: null };
+    }
+  }
+
+  // Prefer lastFocusedWindow — currentWindow is unreliable from a service
+  // worker when the side panel holds focus.
+  const [tab] =
+    (await chrome.tabs.query({ active: true, lastFocusedWindow: true })) ?? [];
   if (!tab?.id || !tab.url?.startsWith("http")) {
     return {
-      error: "Open an http(s) page in the active tab first.",
+      error:
+        "Open an http(s) page in the browser tab first (not chrome:// or the new-tab page), then capture again.",
       tab: null,
     };
   }
   return { tab, error: null };
+}
+
+async function focusTab(tab: chrome.tabs.Tab) {
+  if (tab.id == null || tab.windowId == null) return;
+  await chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+  await chrome.tabs.update(tab.id, { active: true }).catch(() => {});
 }
 
 function fallbackBugContext(tab: chrome.tabs.Tab): BugContext {
@@ -489,18 +515,19 @@ async function handle(
 ) {
   switch (msg.cmd) {
     case "start": {
-      const [tab] = await chrome.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-      if (!tab?.id || !tab.url?.startsWith("http")) {
+      const { tab, error } = await resolveHttpTab(
+        typeof msg.tabId === "number" ? msg.tabId : undefined,
+      );
+      if (!tab) {
         return {
-          error: "Open an http(s) page in the active tab to start recording.",
+          error:
+            error ??
+            "Open an http(s) page in the active tab to start recording.",
         };
       }
       const goto: Step = {
         type: "goto",
-        url: tab.url,
+        url: tab.url!,
         description: `Go to ${tab.url}`,
       };
       await withSession(() => ({
@@ -528,23 +555,35 @@ async function handle(
       return { ok: true };
     }
     case "captureScreenshot": {
-      const { tab, error } = await activeHttpTab();
+      // Prefer a dataUrl captured in the side panel (keeps the user gesture).
+      // Falling back to SW capture only when a dataUrl was not provided.
+      const { tab, error } = await resolveHttpTab(
+        typeof msg.tabId === "number" ? msg.tabId : undefined,
+      );
       if (!tab) return { error };
+      await focusTab(tab);
       await installBugProbe(tab.id!);
-      let dataUrl: string;
-      try {
-        dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
-          format: "png",
-        });
-      } catch (captureError) {
-        const reason =
-          captureError instanceof Error
-            ? captureError.message
-            : String(captureError);
-        return {
-          error: `Screenshot failed: ${reason} — open the extension's details in your browser and set "Site access" to "On all sites", then reload the page and try again.`,
-        };
+
+      let dataUrl =
+        typeof msg.dataUrl === "string" && msg.dataUrl.startsWith("data:")
+          ? msg.dataUrl
+          : "";
+      if (!dataUrl) {
+        try {
+          dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+            format: "png",
+          });
+        } catch (captureError) {
+          const reason =
+            captureError instanceof Error
+              ? captureError.message
+              : String(captureError);
+          return {
+            error: `Screenshot failed: ${reason}. Make sure an http(s) page is visible in the tab (not chrome://), reload that page, and try again from the side panel.`,
+          };
+        }
       }
+
       const context = await getBugContext(tab);
       context.events = [
         ...context.events,
@@ -566,18 +605,27 @@ async function handle(
       }
     }
     case "startBugRecording": {
-      const { tab, error } = await activeHttpTab();
+      const { tab, error } = await resolveHttpTab(
+        typeof msg.tabId === "number" ? msg.tabId : undefined,
+      );
       if (!tab) return { error };
+      await focusTab(tab);
       await installBugProbe(tab.id!);
-      await ensureOffscreenDocument();
-      const streamId = await chrome.tabCapture.getMediaStreamId({
-        targetTabId: tab.id,
-      });
-      const started = await chrome.runtime.sendMessage({
-        cmd: "offscreenStartRecording",
-        streamId,
-      });
-      if (started?.error) return started;
+
+      // With a tabCapture streamId (toolbar-click invocation) the offscreen
+      // document records silently. Without one the side panel has already
+      // started its own getDisplayMedia recording and will send the dataUrl
+      // on stop.
+      const streamId =
+        typeof msg.streamId === "string" && msg.streamId ? msg.streamId : null;
+      if (streamId) {
+        await ensureOffscreenDocument();
+        const started = await chrome.runtime.sendMessage({
+          cmd: "offscreenStartRecording",
+          streamId,
+        });
+        if (started?.error) return started;
+      }
       await withSession((cur) => ({
         ...cur,
         bugRecording: true,
@@ -592,9 +640,12 @@ async function handle(
         return { error: "No bug recording is in progress." };
       }
       const tab = await chrome.tabs.get(s.bugTabId);
-      const stopped = await chrome.runtime.sendMessage({
-        cmd: "offscreenStopRecording",
-      });
+      const stopped =
+        typeof msg.dataUrl === "string" && msg.dataUrl.startsWith("data:")
+          ? { ok: true, dataUrl: msg.dataUrl }
+          : await chrome.runtime
+              .sendMessage({ cmd: "offscreenStopRecording" })
+              .catch(() => ({ error: "No bug recording is in progress." }));
       await withSession((cur) => ({
         ...cur,
         bugRecording: false,

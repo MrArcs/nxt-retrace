@@ -39,7 +39,9 @@ function ThemeHotkey() {
 
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.defaultPrevented || event.repeat) {
+      // Synthetic / automation / IME events can omit `key` — never assume it exists.
+      const key = typeof event.key === "string" ? event.key : ""
+      if (!key || event.defaultPrevented || event.repeat) {
         return
       }
 
@@ -47,11 +49,16 @@ function ThemeHotkey() {
         return
       }
 
-      if (event.key.toLowerCase() !== "d") {
+      if (isTypingTarget(event.target)) {
         return
       }
 
-      if (isTypingTarget(event.target)) {
+      // Bug annotator owns the keyboard while open (delete/escape/text entry).
+      if (document.querySelector("[data-retrace-annotator]")) {
+        return
+      }
+
+      if (key.toLowerCase() !== "d") {
         return
       }
 

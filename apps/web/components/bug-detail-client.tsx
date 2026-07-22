@@ -65,9 +65,6 @@ export function BugDetailClient({ bug, autoAnnotate }: BugDetailClientProps) {
   const problemLogs = context.console.filter((entry) =>
     ["warn", "error", "pageerror", "unhandledrejection"].includes(entry.level)
   )
-  const failedNetwork = context.network.filter(
-    (entry) => entry.status === 0 || entry.status >= 400
-  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -140,12 +137,12 @@ export function BugDetailClient({ bug, autoAnnotate }: BugDetailClientProps) {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(380px,0.8fr)]">
-        <Card>
-          <CardHeader>
+      <div className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(380px,0.8fr)]">
+        <Card className="flex max-h-[min(75vh,52rem)] flex-col overflow-hidden">
+          <CardHeader className="shrink-0">
             <CardTitle className="text-sm capitalize">{bug.kind}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-h-0 flex-1 overflow-auto">
             {bug.kind === "screenshot" ? (
               <BugAnnotator
                 bugId={bug.id}
@@ -163,13 +160,16 @@ export function BugDetailClient({ bug, autoAnnotate }: BugDetailClientProps) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="flex max-h-[min(75vh,52rem)] flex-col overflow-hidden">
+          <CardHeader className="shrink-0">
             <CardTitle className="text-sm">Debug context</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="steps">
-              <TabsList variant="line" className="flex-wrap">
+          <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <Tabs
+              defaultValue="steps"
+              className="flex min-h-0 flex-1 flex-col gap-0"
+            >
+              <TabsList variant="line" className="shrink-0 flex-wrap">
                 <TabsTrigger value="steps">
                   Steps ({context.events.length})
                 </TabsTrigger>
@@ -177,11 +177,14 @@ export function BugDetailClient({ bug, autoAnnotate }: BugDetailClientProps) {
                   Console ({problemLogs.length})
                 </TabsTrigger>
                 <TabsTrigger value="network">
-                  Network ({failedNetwork.length})
+                  Network ({context.network.length})
                 </TabsTrigger>
                 <TabsTrigger value="metadata">Metadata</TabsTrigger>
               </TabsList>
-              <TabsContent value="steps" className="pt-3">
+              <TabsContent
+                value="steps"
+                className="min-h-0 flex-1 overflow-auto pt-3"
+              >
                 {context.events.length ? (
                   <ol className="flex flex-col divide-y rounded-lg border text-sm">
                     {context.events.map((event, index) => (
@@ -199,9 +202,12 @@ export function BugDetailClient({ bug, autoAnnotate }: BugDetailClientProps) {
                   </p>
                 )}
               </TabsContent>
-              <TabsContent value="console" className="pt-3">
+              <TabsContent
+                value="console"
+                className="min-h-0 flex-1 overflow-auto pt-3"
+              >
                 {context.console.length ? (
-                  <ul className="flex max-h-130 flex-col divide-y overflow-auto rounded-lg border font-mono text-xs">
+                  <ul className="flex flex-col divide-y rounded-lg border font-mono text-xs">
                     {context.console.map((entry, index) => (
                       <li key={index} className="px-3 py-2">
                         <span className="mr-2 rounded bg-muted px-1.5 py-0.5">
@@ -219,7 +225,10 @@ export function BugDetailClient({ bug, autoAnnotate }: BugDetailClientProps) {
                   </p>
                 )}
               </TabsContent>
-              <TabsContent value="network" className="pt-3">
+              <TabsContent
+                value="network"
+                className="min-h-0 flex-1 overflow-auto pt-3"
+              >
                 {context.network.length ? (
                   <Table>
                     <TableHeader>
@@ -251,7 +260,10 @@ export function BugDetailClient({ bug, autoAnnotate }: BugDetailClientProps) {
                   </p>
                 )}
               </TabsContent>
-              <TabsContent value="metadata" className="pt-3">
+              <TabsContent
+                value="metadata"
+                className="min-h-0 flex-1 overflow-auto pt-3"
+              >
                 <dl className="grid gap-3 text-sm">
                   <div>
                     <dt className="text-muted-foreground">URL</dt>

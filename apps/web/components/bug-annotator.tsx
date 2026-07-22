@@ -271,14 +271,21 @@ export function BugAnnotator({
     y: number
     value: string
   } | null>(null)
-  // viewBox height in a width-normalized (0-1000) space; matching the image
-  // aspect keeps circles round and text unstretched
-  const [viewH, setViewH] = React.useState(1000)
+  // viewBox height in a width-normalized (0-1000) space; 0 until the image
+  // loads so we never draw against a wrong (square) aspect ratio
+  const [viewH, setViewH] = React.useState(0)
   const dragRef = React.useRef<DragState | null>(null)
 
   const onImgLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
     const img = event.currentTarget
     if (img.naturalWidth > 0) {
+      setViewH(Math.round((img.naturalHeight / img.naturalWidth) * 1000))
+    }
+  }
+
+  const imgRef = (img: HTMLImageElement | null) => {
+    // Cached images may skip onLoad; sync aspect as soon as the node mounts.
+    if (img?.complete && img.naturalWidth > 0 && viewH <= 0) {
       setViewH(Math.round((img.naturalHeight / img.naturalWidth) * 1000))
     }
   }
@@ -312,22 +319,26 @@ export function BugAnnotator({
   React.useEffect(() => {
     if (!open) return
     const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement
+      const key = typeof event.key === "string" ? event.key : ""
+      if (!key) return
+      const target = event.target as HTMLElement | null
       if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable
       ) {
         return
       }
-      if (event.key === "Delete" || event.key === "Backspace") removeSelected()
-      if (event.key === "Escape") setSelected(null)
+      if (key === "Delete" || key === "Backspace") removeSelected()
+      if (key === "Escape") setSelected(null)
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [open, removeSelected])
 
   const onPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    // Wait until natural size is known so viewBox matches the screenshot.
+    if (viewH <= 0) return
     event.currentTarget.setPointerCapture(event.pointerId)
     const target = event.target as SVGElement
     const p = toPoint(event)
@@ -472,6 +483,7 @@ export function BugAnnotator({
   }
 
   const download = async () => {
+    if (viewH <= 0) return
     const img = new Image()
     img.crossOrigin = "anonymous"
     img.src = mediaUrl
@@ -482,7 +494,8 @@ export function BugAnnotator({
     const ctx = canvas.getContext("2d")
     if (!ctx) return
     ctx.drawImage(img, 0, 0)
-    ctx.scale(canvas.width / 1000, canvas.height / viewH)
+    const height = Math.round((img.naturalHeight / img.naturalWidth) * 1000)
+    ctx.scale(canvas.width / 1000, canvas.height / height)
     for (const shape of annotations.shapes) {
       ctx.strokeStyle = shape.color
       ctx.fillStyle = shape.color
@@ -581,8 +594,8 @@ export function BugAnnotator({
   }
 
   const editor = (
-    <div className="flex h-full flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <Button
           type="button"
           size="sm"
@@ -645,50 +658,55 @@ export function BugAnnotator({
       </div>
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-muted">
         {/* shrink-wrap the image so the SVG overlay aligns with it exactly */}
-        <div className="relative mx-auto w-fit">
+        <div className="relative mx-auto w-fit min-w-0 p-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
+            ref={imgRef}
             src={mediaUrl}
             alt=""
             onLoad={onImgLoad}
-            className="block max-w-full"
+            className="block h-auto max-w-full"
           />
-          <svg
-            className={cn(
-              "absolute inset-0 h-full w-full touch-none",
-              tool !== "select" && "cursor-crosshair"
-            )}
-            viewBox={`0 0 1000 ${viewH}`}
-            preserveAspectRatio="none"
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-          >
-            <defs>
-              <marker
-                id="arrowhead"
-                markerWidth="10"
-                markerHeight="7"
-                refX="9"
-                refY="3.5"
-                orient="auto"
-              >
-                <polygon points="0 0, 10 3.5, 0 7" fill={color} />
-              </marker>
-            </defs>
-            {[...annotations.shapes, ...(draft ? [draft] : [])].map((shape) => (
-              <g
-                key={shape.id}
-                data-shape-id={shape.id}
-                className={tool === "select" ? "cursor-move" : undefined}
-              >
-                {renderShape(shape, selected === shape.id)}
-                {tool === "select" && renderHitArea(shape)}
-              </g>
-            ))}
-            {selectionOverlay()}
-          </svg>
-          {textDraft && (
+          {viewH > 0 && (
+            <svg
+              className={cn(
+                "absolute inset-0 h-full w-full touch-none",
+                tool !== "select" && "cursor-crosshair"
+              )}
+              viewBox={`0 0 1000 ${viewH}`}
+              preserveAspectRatio="none"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+            >
+              <defs>
+                <marker
+                  id="arrowhead"
+                  markerWidth="10"
+                  markerHeight="7"
+                  refX="9"
+                  refY="3.5"
+                  orient="auto"
+                >
+                  <polygon points="0 0, 10 3.5, 0 7" fill={color} />
+                </marker>
+              </defs>
+              {[...annotations.shapes, ...(draft ? [draft] : [])].map(
+                (shape) => (
+                  <g
+                    key={shape.id}
+                    data-shape-id={shape.id}
+                    className={tool === "select" ? "cursor-move" : undefined}
+                  >
+                    {renderShape(shape, selected === shape.id)}
+                    {tool === "select" && renderHitArea(shape)}
+                  </g>
+                )
+              )}
+              {selectionOverlay()}
+            </svg>
+          )}
+          {textDraft && viewH > 0 && (
             <div
               className="absolute z-10 flex w-64 items-center gap-1.5 rounded-lg border bg-popover p-2 shadow-md"
               style={{
@@ -705,8 +723,9 @@ export function BugAnnotator({
                   setTextDraft({ ...textDraft, value: event.target.value })
                 }
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") commitTextDraft()
-                  if (event.key === "Escape") setTextDraft(null)
+                  const key = typeof event.key === "string" ? event.key : ""
+                  if (key === "Enter") commitTextDraft()
+                  if (key === "Escape") setTextDraft(null)
                 }}
               />
               <Button type="button" size="sm" onClick={commitTextDraft}>
@@ -734,38 +753,44 @@ export function BugAnnotator({
         <div className="relative overflow-hidden rounded-lg border bg-muted">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
+            ref={imgRef}
             src={mediaUrl}
             alt=""
             onLoad={onImgLoad}
             className="w-full object-contain"
           />
-          <svg
-            className="pointer-events-none absolute inset-0 h-full w-full"
-            viewBox={`0 0 1000 ${viewH}`}
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <marker
-                id="arrowhead"
-                markerWidth="10"
-                markerHeight="7"
-                refX="9"
-                refY="3.5"
-                orient="auto"
-              >
-                <polygon points="0 0, 10 3.5, 0 7" fill={color} />
-              </marker>
-            </defs>
-            {annotations.shapes.map((shape) => renderShape(shape))}
-          </svg>
+          {viewH > 0 && (
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              viewBox={`0 0 1000 ${viewH}`}
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <marker
+                  id="arrowhead"
+                  markerWidth="10"
+                  markerHeight="7"
+                  refX="9"
+                  refY="3.5"
+                  orient="auto"
+                >
+                  <polygon points="0 0, 10 3.5, 0 7" fill={color} />
+                </marker>
+              </defs>
+              {annotations.shapes.map((shape) => renderShape(shape))}
+            </svg>
+          )}
         </div>
         <Button type="button" onClick={() => setOpen(true)}>
           <PenLine className="size-4" /> Annotate screenshot
         </Button>
       </div>
       {open && (
-        <div className="fixed inset-0 z-50 flex flex-col gap-3 bg-background p-4">
-          <div className="flex items-center justify-between">
+        <div
+          data-retrace-annotator
+          className="fixed inset-0 z-50 flex h-dvh flex-col gap-3 overflow-hidden bg-background p-4"
+        >
+          <div className="flex shrink-0 items-center justify-between">
             <h2 className="font-heading text-lg font-semibold">Annotate bug</h2>
             <Button
               type="button"
