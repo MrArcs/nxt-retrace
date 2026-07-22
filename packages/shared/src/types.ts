@@ -1,4 +1,5 @@
-export type LocatorKind = 'testId' | 'role' | 'label' | 'placeholder' | 'text' | 'css';
+export type LocatorKind =
+  "testId" | "role" | "label" | "placeholder" | "text" | "css";
 
 export interface LocatorCandidate {
   kind: LocatorKind;
@@ -16,7 +17,7 @@ interface BaseStep {
 }
 
 export interface GotoStep extends BaseStep {
-  type: 'goto';
+  type: "goto";
   url: string;
 }
 
@@ -26,31 +27,38 @@ export interface LocatorStep extends BaseStep {
 }
 
 export interface ClickStep extends LocatorStep {
-  type: 'click' | 'dblclick';
+  type: "click" | "dblclick";
 }
 export interface FillStep extends LocatorStep {
-  type: 'fill';
+  type: "fill";
   value: string;
 }
 export interface PressStep extends LocatorStep {
-  type: 'press';
+  type: "press";
   key: string;
 }
 export interface SelectStep extends LocatorStep {
-  type: 'select';
+  type: "select";
   values: string[];
 }
 export interface CheckStep extends LocatorStep {
-  type: 'check' | 'uncheck';
+  type: "check" | "uncheck";
 }
 export interface UploadStep extends LocatorStep {
-  type: 'upload';
+  type: "upload";
   fileName: string;
 }
 
-export type Step = GotoStep | ClickStep | FillStep | PressStep | SelectStep | CheckStep | UploadStep;
+export type Step =
+  | GotoStep
+  | ClickStep
+  | FillStep
+  | PressStep
+  | SelectStep
+  | CheckStep
+  | UploadStep;
 
-export type RunStatus = 'running' | 'passed' | 'failed' | 'error';
+export type RunStatus = "running" | "passed" | "failed" | "error";
 
 export interface ConsoleEntry {
   type: string;
@@ -64,4 +72,78 @@ export interface NetworkEntry {
   status: number;
   resourceType: string;
   failure?: string;
+}
+
+export type BugKind = "screenshot" | "recording";
+export type BugStatus = "open" | "in_progress" | "resolved";
+
+export interface BugConsoleEntry {
+  level: "log" | "info" | "warn" | "error" | "pageerror" | "unhandledrejection";
+  text: string;
+  timestamp: number;
+  url?: string;
+}
+
+export interface BugNetworkEntry {
+  method: string;
+  url: string;
+  status: number;
+  durationMs: number;
+  timestamp: number;
+  resourceType?: string;
+  failure?: string;
+}
+
+export interface BugEventEntry {
+  type: string;
+  description: string;
+  timestamp: number;
+  url: string;
+}
+
+export interface BugDeviceInfo {
+  userAgent: string;
+  platform: string;
+  language: string;
+  viewport: {
+    width: number;
+    height: number;
+  };
+  screen: {
+    width: number;
+    height: number;
+  };
+}
+
+export interface BugContext {
+  pageUrl: string;
+  title: string;
+  timestamp: number;
+  device: BugDeviceInfo;
+  console: BugConsoleEntry[];
+  network: BugNetworkEntry[];
+  events: BugEventEntry[];
+}
+
+export type AnnotationShapeType =
+  "rect" | "ellipse" | "arrow" | "pen" | "highlight" | "text";
+
+export interface AnnotationShape {
+  id: string;
+  type: AnnotationShapeType;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  x2?: number;
+  y2?: number;
+  points?: { x: number; y: number }[];
+  text?: string;
+  color: string;
+  strokeWidth: number;
+}
+
+export interface BugAnnotations {
+  version: 1;
+  shapes: AnnotationShape[];
 }

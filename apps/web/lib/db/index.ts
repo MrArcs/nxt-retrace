@@ -1,10 +1,11 @@
 import fs from "node:fs"
 import Database from "better-sqlite3"
 import { drizzle } from "drizzle-orm/better-sqlite3"
-import { DATA_DIR, DB_PATH } from "@/lib/config"
+import { BUGS_DIR, DATA_DIR, DB_PATH } from "@/lib/config"
 import * as schema from "./schema"
 
 fs.mkdirSync(DATA_DIR, { recursive: true })
+fs.mkdirSync(BUGS_DIR, { recursive: true })
 
 const sqlite = new Database(DB_PATH)
 sqlite.pragma("journal_mode = WAL")
@@ -33,11 +34,27 @@ sqlite.exec(`
     run_dir TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_runs_script ON runs(script_id, started_at DESC);
+  CREATE TABLE IF NOT EXISTS bugs (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL,
+    media_path TEXT NOT NULL,
+    annotations TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    page_url TEXT NOT NULL,
+    context TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_bugs_status ON bugs(status, created_at DESC);
 `)
 
 // ponytail: poor-man's migration for pre-existing dbs; errors mean the column exists
 try {
-  sqlite.exec("ALTER TABLE scripts ADD COLUMN code_edited INTEGER NOT NULL DEFAULT 0")
+  sqlite.exec(
+    "ALTER TABLE scripts ADD COLUMN code_edited INTEGER NOT NULL DEFAULT 0"
+  )
 } catch {
   /* column already present */
 }

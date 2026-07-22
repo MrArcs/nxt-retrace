@@ -1,4 +1,11 @@
-import type { RunStatus, Step } from "@pwrec/shared"
+import type {
+  BugAnnotations,
+  BugContext,
+  BugKind,
+  BugStatus,
+  RunStatus,
+  Step,
+} from "@pwrec/shared"
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 export const scripts = sqliteTable("scripts", {
@@ -7,7 +14,9 @@ export const scripts = sqliteTable("scripts", {
   url: text("url").notNull(),
   steps: text("steps", { mode: "json" }).$type<Step[]>().notNull(),
   code: text("code").notNull(),
-  codeEdited: integer("code_edited", { mode: "boolean" }).notNull().default(false),
+  codeEdited: integer("code_edited", { mode: "boolean" })
+    .notNull()
+    .default(false),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 })
@@ -25,5 +34,22 @@ export const runs = sqliteTable("runs", {
   runDir: text("run_dir").notNull(),
 })
 
+export const bugs = sqliteTable("bugs", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  kind: text("kind").$type<BugKind>().notNull(),
+  mediaPath: text("media_path").notNull(),
+  annotations: text("annotations", { mode: "json" })
+    .$type<BugAnnotations>()
+    .notNull(),
+  status: text("status").$type<BugStatus>().notNull().default("open"),
+  pageUrl: text("page_url").notNull(),
+  context: text("context", { mode: "json" }).$type<BugContext>().notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+})
+
 export type ScriptRow = typeof scripts.$inferSelect
 export type RunRow = typeof runs.$inferSelect
+export type BugRow = typeof bugs.$inferSelect

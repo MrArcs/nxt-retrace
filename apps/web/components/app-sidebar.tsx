@@ -1,6 +1,6 @@
 "use client"
 
-import { FileCode2, LayoutDashboard } from "lucide-react"
+import { Bug, FileCode2, LayoutDashboard } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -19,6 +19,7 @@ import {
 const NAV = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Scripts", url: "/scripts", icon: FileCode2 },
+  { title: "Bugs", url: "/bugs", icon: Bug },
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -27,7 +28,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isActive = (url: string) =>
     url === "/"
       ? pathname === "/"
-      : pathname.startsWith(url) || pathname.startsWith("/runs")
+      : pathname.startsWith(url) ||
+        (url === "/scripts" && pathname.startsWith("/runs"))
 
   return (
     <Sidebar collapsible="icon" {...props}>

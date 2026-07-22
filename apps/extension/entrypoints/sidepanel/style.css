@@ -91,8 +91,30 @@ button.primary.recording {
 button.ghost:hover {
   background: color-mix(in srgb, var(--border) 40%, transparent);
 }
+button.danger {
+  color: var(--rec);
+}
 button {
   flex: 1;
+}
+
+.bug-report {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--border) 16%, transparent);
+}
+.bug-report h2 {
+  font-size: 13px;
+  font-weight: 650;
+}
+.bug-report p,
+.muted {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .steps {

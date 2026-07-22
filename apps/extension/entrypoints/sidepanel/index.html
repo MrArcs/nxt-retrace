@@ -20,6 +20,24 @@
       <button id="discard" class="ghost" hidden>Discard</button>
     </div>
 
+    <section class="bug-report">
+      <div>
+        <h2>Report a bug</h2>
+        <p>
+          Capture the current tab with console, network, steps, and device
+          context.
+        </p>
+      </div>
+      <div class="controls">
+        <button id="captureScreenshot" class="ghost">Capture screenshot</button>
+        <button id="toggleBugRecording" class="ghost">Record tab</button>
+      </div>
+      <button id="discardBugRecording" class="ghost danger" hidden>
+        Discard bug recording
+      </button>
+      <p id="bugRecordingStatus" class="muted" hidden></p>
+    </section>
+
     <ol id="steps" class="steps"></ol>
     <p id="empty" class="empty">
       Open the page you want to test, then hit <b>Start recording</b>. Every
@@ -34,6 +52,7 @@
       </div>
       <p id="error" class="error" hidden></p>
     </footer>
+    <p id="topError" class="error" hidden></p>
 
     <script type="module" src="./main.ts"></script>
   </body>
