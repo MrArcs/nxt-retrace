@@ -1,0 +1,14 @@
+{
+  "name": "pwrec",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w apps/web",
+    "dev:ext": "npm run dev -w apps/extension",
+    "build": "npm run build -w apps/extension && npm run build -w apps/web",
+    "test": "npm run test -w packages/shared && npm run test -w apps/extension"
+  }
+}

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Retrace demo page</title>
+  </head>
+  <body>
+    <h1>Retrace demo</h1>
+    <label for="name">Your name</label>
+    <input id="name" type="text" placeholder="Type here" />
+    <button data-testid="greet-btn" id="greet">Greet</button>
+    <p id="out"></p>
+    <script>
+      document.getElementById("greet").addEventListener("click", () => {
+        const name = document.getElementById("name").value || "stranger"
+        document.getElementById("out").textContent = "Hello, " + name + "!"
+        console.error("demo: intentional console error")
+        fetch("/api/does-not-exist").catch(() => {})
+      })
+    </script>
+  </body>
+</html>
